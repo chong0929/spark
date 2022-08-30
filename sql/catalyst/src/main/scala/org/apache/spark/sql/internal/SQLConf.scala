@@ -2818,6 +2818,13 @@ object SQLConf {
     .stringConf
     .createWithDefault("avro,csv,json,kafka,orc,parquet,text")
 
+  val READ_SOURCES_WITH_SUBDIRECTORIES =
+    buildConf("spark.sql.sources.readWithSubdirectories")
+      .doc("When set to true, Spark SQL could read the files" +
+        "from subdirectories under root path of table")
+      .booleanConf
+      .createWithDefault(false)
+
   val DISABLED_V2_STREAMING_WRITERS = buildConf("spark.sql.streaming.disabledV2Writers")
     .doc("A comma-separated list of fully qualified data source register class names for which" +
       " StreamWriteSupport is disabled. Writes to these sources will fall back to the V1 Sinks.")
@@ -4542,6 +4549,8 @@ class SQLConf extends Serializable with Logging {
 
   def continuousStreamingExecutorPollIntervalMs: Long =
     getConf(CONTINUOUS_STREAMING_EXECUTOR_POLL_INTERVAL_MS)
+
+  def readSourcesWithSubdirectories: Boolean = getConf(READ_SOURCES_WITH_SUBDIRECTORIES)
 
   def disabledV2StreamingWriters: String = getConf(DISABLED_V2_STREAMING_WRITERS)
 

@@ -96,8 +96,21 @@ class InMemoryFileIndex(
     val files = listLeafFiles(rootPaths)
     cachedLeafFiles =
       new mutable.LinkedHashMap[Path, FileStatus]() ++= files.map(f => f.getPath -> f)
-    cachedLeafDirToChildrenFiles = files.toArray.groupBy(_.getPath.getParent)
+    cachedLeafDirToChildrenFiles =
+      if (sparkSession.sessionState.conf.readSourcesWithSubdirectories) {
+        files.toArray.groupBy(file => getRootPathsLeafDir(file.getPath.getParent))
+      } else {
+        files.toArray.groupBy(_.getPath.getParent)
+      }
     cachedPartitionSpec = null
+  }
+
+  private def getRootPathsLeafDir(path: Path): Path = {
+      if (rootPaths.contains(path)) {
+        path
+      } else {
+        getRootPathsLeafDir(path.getParent)
+      }
   }
 
   override def equals(other: Any): Boolean = other match {

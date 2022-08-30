@@ -410,4 +410,54 @@ class DataSourceWithHiveMetastoreCatalogSuite
       })
     }
   }
+
+  test("SPARK-28098: allow reader could read files from subdirectories") {
+    Seq[String]("orc", "parquet").foreach{
+      format => {
+        withTempPath(dir => {
+          withTable(format) {
+            withSQLConf(
+              "spark.sql.sources.readWithSubdirectories.enabled" -> "true") {
+              val testData_sub = java.util.Arrays.asList(Row(1), Row(2))
+              val testData_sub_sub = java.util.Arrays.asList(Row(3), Row(4), Row(5))
+              val testData_root = java.util.Arrays.asList(Row(6), Row(7))
+
+              val dataFrame_sub = spark.sqlContext
+                .createDataFrame(testData_sub, StructType(Seq(StructField("val", IntegerType))))
+
+              val dataFrame_sub_sub = spark.sqlContext
+                .createDataFrame(testData_sub_sub, StructType(Seq(StructField("val", IntegerType))))
+
+              val dataFrame_root = spark.sqlContext
+                .createDataFrame(testData_root, StructType(Seq(StructField("val", IntegerType))))
+
+              dataFrame_sub
+                .write
+                .mode(SaveMode.Append)
+                .format(format)
+                .save(s"${dir.getCanonicalPath}/sub1")
+
+              dataFrame_sub_sub
+                .write
+                .mode(SaveMode.Append)
+                .format(format)
+                .save(s"${dir.getCanonicalPath}/sub1/sub2")
+
+              dataFrame_root
+                .write
+                .mode(SaveMode.Append)
+                .format(format)
+                .save(s"${dir.getCanonicalPath}/")
+
+              spark.sql(s"CREATE EXTERNAL TABLE test_$format (val INT)" +
+                s" STORED AS $format LOCATION '${dir.toURI}'")
+              val df_all = dataFrame_sub.union(dataFrame_root).union(dataFrame_sub_sub).toDF("val")
+
+              checkAnswer(spark.sql(s"select * from test_$format"), df_all)
+            }
+          }
+        })
+      }
+    }
+  }
 }
